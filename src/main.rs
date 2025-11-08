@@ -34,11 +34,11 @@ async fn main() {
         .route("/7daysserverlog", get(ws_handler))
         .with_state(Arc::new(AppState { tx }));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3005")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
         .await
         .unwrap();
 
-    let mut child = start_folk_game_server().expect("Failed to start game server");
+    let mut child = start_game_server().expect("Failed to start game server");
     {
         let mut state = masterstate.lock().unwrap(); // .unwrap() 用于处理锁可能被“毒化”的错误
         state.gamer_server_running = true;
