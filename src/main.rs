@@ -16,7 +16,7 @@ use axum::extract::ws;
 use futures::{SinkExt, StreamExt};
 use tokio::process::Command;
 use tokio::sync::{broadcast};
-use crate::gameserver_util::start_game_server;
+use crate::gameserver_util::{start_folk_game_server, start_game_server};
 
 struct MasterState {
     gamer_server_running: bool,
@@ -38,7 +38,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let mut child = start_game_server().expect("Failed to start game server");
+    let mut child = start_folk_game_server().expect("Failed to start game server");
     {
         let mut state = masterstate.lock().unwrap(); // .unwrap() 用于处理锁可能被“毒化”的错误
         state.gamer_server_running = true;
@@ -51,6 +51,7 @@ async fn main() {
         println!("Game server shutdown");
     });
 
+    println!("start listening on port 3005");
     axum::serve(listener, app).await.unwrap();
 }
 

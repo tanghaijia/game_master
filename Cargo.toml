@@ -3,6 +3,14 @@ name = "game_master"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "game_master"
+path = "src/main.rs"
+
+[[bin]]
+name = "folk_server"
+path = "src/bin/folk_server.rs"
+
 [dependencies]
 tokio = {version = "1.48.0", features = ["full"]}
 axum = {version = "0.8.6", features = ["ws"]}
