@@ -21,6 +21,12 @@ struct Auth {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct WebServer {
+    addr: String,
+    port: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct Proxy {
     name: String,
@@ -38,6 +44,7 @@ pub struct Config {
     server_addr: String,
     server_port: u16,
     auth: Auth,
+    web_server: WebServer,
     proxies: Vec<Proxy>,
 }
 
@@ -68,10 +75,15 @@ pub async fn frpc_config_write(config: &FrpcToml, path: &str) -> Result<(), Box<
         local_ip: "127.0.0.1".to_string(),
         remote_port: config.udp_remote_port
     };
+    let web_server = WebServer {
+        addr: "127.0.0.1".to_string(),
+        port: 7400
+    };
     let frpc_config = Config {
         server_port,
         server_addr,
         auth,
+        web_server,
         proxies: vec![tcp, ucp]
     };
 
