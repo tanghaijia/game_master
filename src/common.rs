@@ -8,7 +8,7 @@ pub fn get_local_ip() -> Option<String> {
             println!("find ip:");
             for (name, ip) in network_interfaces.iter() {
                 println!("  {}:\t{}", name, ip);
-                if name == NET_INTERFACE_NAME {
+                if name == NET_INTERFACE_NAME && ip.is_ipv4() {
                     return Some(ip.to_string());
                 }
             }
