@@ -3,24 +3,51 @@ mod frp_util;
 mod const_value;
 mod common;
 
-use axum::{
-    extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
-    },
-    response::IntoResponse,
-    routing::get,
-    Router,
-};
+use axum::{extract::{
+    ws::{Message, WebSocket, WebSocketUpgrade},
+    State,
+}, response::IntoResponse, routing::get, Json, Router};
 use std::{sync::Arc, time::Duration};
+use std::process::ExitStatus;
 use std::sync::Mutex;
 use std::thread::sleep;
 use axum::extract::ws;
 use axum::http::StatusCode;
+use axum::response::Response;
+use axum::routing::post;
 use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast};
 use crate::common::get_index;
+use crate::const_value::FRPC_TOML_PATH;
+use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_write, Config, FrpcToml};
 use crate::gameserver_util::{start_game_server};
+
+enum AppError {
+    // 专门用于处理读取配置文件失败的错误
+    ConfigReadError(String),
+    ConfigWriteError(String),
+    ConfigReloadError(String),
+}
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AppError::ConfigReadError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to read config file: {}", msg),
+            ),
+            AppError::ConfigWriteError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to write config file: {}", msg),
+            ),
+            AppError::ConfigReloadError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to reload config file: {}", msg),
+            )
+        };
+
+        (status, error_message).into_response()
+    }
+}
 
 struct MasterState {
     gamer_server_running: bool,
@@ -41,7 +68,9 @@ async fn main() {
         .route("/status", get(status))
         .route("/start_7days", get(start_7days)).with_state(masterstate.clone())
         .route("/7daysserverlog", get(ws_handler))
-        .with_state(Arc::new(AppState { tx }));
+        .with_state(Arc::new(AppState { tx }))
+        .route("/get_frpc_toml", get(get_frpc_toml))
+        .route("/reset_frpc_toml", post(reset_frpc_toml));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
         .await
@@ -91,6 +120,28 @@ async fn start_7days(State(masterstate): State<Arc<Mutex<MasterState>>>) -> (Sta
     });
 
     ( StatusCode::OK, "game server start to run." )
+}
+
+async fn get_frpc_toml() -> Result<Json<Config>, AppError> {
+    match frpc_config_read(FRPC_TOML_PATH).await {
+        Ok(config) => Ok(Json(config)),
+        Err(e) => {
+            println!("{:#?}", e);
+            Err(AppError::ConfigReadError(e.to_string()))
+        }
+    }
+}
+
+async fn reset_frpc_toml(Json(config): Json<FrpcToml>) -> Result<StatusCode, AppError> {
+    frpc_config_write(&config, FRPC_TOML_PATH)
+        .await
+        .map_err(|e| AppError::ConfigWriteError(e.to_string()))?;
+
+    frpc_config_reload()
+        .await
+        .map_err(|e| AppError::ConfigReloadError(e.to_string()))?;
+
+    Ok(StatusCode::OK)
 }
 
 struct AppState {
@@ -144,5 +195,26 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
         _ = (&mut recv_task) => send_task.abort(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use axum::Router;
+    use axum::routing::get;
+    use crate::{get_frpc_toml};
+
+    #[tokio::test]
+    async fn get_fpc_toml_test() {
+        let app = Router::new()
+            .route("/hello", get(|| async { "Hello, World!" }))
+            .route("/get_fpc_toml", get(get_frpc_toml));
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:3105")
+            .await
+            .unwrap();
+
+        axum::serve(listener, app).await.unwrap();
     }
 }
