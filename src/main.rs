@@ -1,4 +1,7 @@
 mod gameserver_util;
+mod frp_util;
+mod const_value;
+mod common;
 
 use axum::{
     extract::{
@@ -13,24 +16,31 @@ use std::{sync::Arc, time::Duration};
 use std::sync::Mutex;
 use std::thread::sleep;
 use axum::extract::ws;
+use axum::http::StatusCode;
 use futures::{SinkExt, StreamExt};
 use tokio::process::Command;
 use tokio::sync::{broadcast};
+use crate::common::get_index;
 use crate::gameserver_util::{start_folk_game_server, start_game_server};
 
 struct MasterState {
     gamer_server_running: bool,
+    index: u8
 }
 
 #[tokio::main]
 async fn main() {
-    let masterstate = Arc::new(Mutex::new(MasterState { gamer_server_running: false }));
+    let index = get_index();
+    println!("index is {}", index);
+    let masterstate = Arc::new(Mutex::new(
+        MasterState { gamer_server_running: false, index: index },
+    ));
 
     let (tx, _rx) = broadcast::channel(100);
     let app = Router::new()
         .route("/hello", get(|| async { "Hello, World!" }))
         .route("/status", get(status))
-        .route("/start_7days", get(start_7days))
+        .route("/start_7days", get(start_7days)).with_state(masterstate.clone())
         .route("/7daysserverlog", get(ws_handler))
         .with_state(Arc::new(AppState { tx }));
 
@@ -59,9 +69,29 @@ async fn status() -> &'static str {
     "index=0;7daysserrver=stop;"
 }
 
-async fn start_7days() {
-    let cmd = Command::new("./7DaysToDieServer.x86_64")
-        .arg("-configfile=serverconfig.xml");
+async fn start_7days(State(masterstate): State<Arc<Mutex<MasterState>>>) -> (StatusCode, &'static str) {
+    let mut state = masterstate.lock().unwrap();
+    if state.gamer_server_running {
+        return ( StatusCode::OK, "game server is running");
+    }
+
+    let masterstate2 = masterstate.clone();
+    let mut child = start_game_server().expect("Failed to start game server");
+    {
+        let mut state = masterstate2.lock().unwrap(); // .unwrap() 用于处理锁可能被“毒化”的错误
+        state.gamer_server_running = true;
+        println!("Game server state set to running.");
+    }
+
+    let masterstate2 = masterstate.clone();
+    tokio::spawn(async move {
+        child.wait().await.expect("Failed to wait game server");
+        let mut state = masterstate2.lock().unwrap();
+        state.gamer_server_running = false;
+        println!("Game server shutdown");
+    });
+
+    ( StatusCode::OK, "game server start to run." )
 }
 
 struct AppState {
