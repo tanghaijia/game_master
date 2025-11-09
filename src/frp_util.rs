@@ -6,13 +6,13 @@ use crate::const_value::{FRPC_EXE_PATH, FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCA
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FrpcToml {
-    pub serverAddr: String,
-    pub serverPort: u16,
+    pub server_addr: String,
+    pub server_port: u16,
     pub auth_token: String,
     pub tcp_name: String,
-    pub tcp_remotePort: u16,
+    pub tcp_remote_port: u16,
     pub udp_name: String,
-    pub udp_remotePort: u16,
+    pub udp_remote_port: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,21 +52,21 @@ pub async fn frpc_config_read(path: &str) -> Result<Config, Box<dyn std::error::
 
 pub async fn frpc_config_write(config: &FrpcToml, path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let auth = Auth{ token: config.auth_token.clone() };
-    let server_addr = config.serverAddr.clone();
-    let server_port = config.serverPort;
+    let server_addr = config.server_addr.clone();
+    let server_port = config.server_port;
     let tcp = Proxy {
         name: config.tcp_name.clone(),
         proxy_type: "tcp".to_string(),
         local_port: TCP_LOCAL_PORT,
         local_ip: "127.0.0.1".to_string(),
-        remote_port: config.tcp_remotePort
+        remote_port: config.tcp_remote_port
     };
     let ucp = Proxy {
         name: config.udp_name.clone(),
         proxy_type: "udp".to_string(),
         local_port: UDP_LOCAL_PORT,
         local_ip: "127.0.0.1".to_string(),
-        remote_port: config.udp_remotePort
+        remote_port: config.udp_remote_port
     };
     let frpc_config = Config {
         server_port,
@@ -100,13 +100,13 @@ mod tests {
     #[tokio::test]
     async fn frpc_config_write_test() {
         let config = FrpcToml {
-            serverAddr: "124.223.27.133".to_string(),
-            serverPort: 7000,
+            server_addr: "124.223.27.133".to_string(),
+            server_port: 7000,
             auth_token: "123456".to_string(),
             tcp_name: "7daysTodieServer".to_string(),
-            tcp_remotePort: 26900,
+            tcp_remote_port: 26900,
             udp_name: "7daysTodieServerUDP26902".to_string(),
-            udp_remotePort: 26902,
+            udp_remote_port: 26902,
         };
         let res = frpc_config_write(&config, "C:\\Users\\89396\\projects\\game_master\\frpc.toml").await.unwrap();
 

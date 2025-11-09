@@ -8,7 +8,6 @@ use axum::{extract::{
     State,
 }, response::IntoResponse, routing::get, Json, Router};
 use std::{sync::Arc, time::Duration};
-use std::process::ExitStatus;
 use std::sync::Mutex;
 use std::thread::sleep;
 use axum::extract::ws;
@@ -200,7 +199,6 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use axum::Router;
     use axum::routing::get;
     use crate::{get_frpc_toml};
