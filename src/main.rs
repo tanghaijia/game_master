@@ -18,7 +18,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast};
 use crate::common::get_index;
 use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
-use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_write, Config, FrpcToml};
+use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
 use crate::gameserver_util::{start_game_server};
 
 enum AppError {
@@ -26,6 +26,8 @@ enum AppError {
     ConfigReadError(String),
     ConfigWriteError(String),
     ConfigReloadError(String),
+    ConfigResetByIndexError(String),
+    BadBodyError(String)
 }
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
@@ -41,6 +43,14 @@ impl IntoResponse for AppError {
             AppError::ConfigReloadError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Failed to reload config file: {}", msg),
+            ),
+            AppError::BadBodyError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Bed body: {}", msg),
+            ),
+            AppError::ConfigResetByIndexError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to reset config file by index: {}", msg),
             )
         };
 
@@ -84,7 +94,8 @@ async fn main() {
         .route("/7daysserverlog", get(ws_handler))
         .with_state(Arc::new(AppState { tx }))
         .route("/get_frpc_toml", get(get_frpc_toml))
-        .route("/reset_frpc_toml", post(reset_frpc_toml));
+        .route("/reset_frpc_toml", post(reset_frpc_toml))
+        .route("/reset_frpc_toml_by_index", post(reset_frpc_toml_by_index));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
         .await
@@ -154,6 +165,16 @@ async fn reset_frpc_toml(Json(config): Json<FrpcToml>) -> Result<StatusCode, App
     frpc_config_reload()
         .await
         .map_err(|e| AppError::ConfigReloadError(e.to_string()))?;
+
+    Ok(StatusCode::OK)
+}
+
+async fn reset_frpc_toml_by_index(body: String) -> Result<StatusCode, AppError> {
+    let index = body.parse::<u8>().map_err(|e| AppError::BadBodyError(e.to_string()))?;
+
+    frpc_config_reset_by_index(FRPC_TOML_PATH, index)
+        .await
+        .map_err(|e| AppError::ConfigWriteError(e.to_string()))?;
 
     Ok(StatusCode::OK)
 }

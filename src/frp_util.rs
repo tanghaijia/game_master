@@ -15,18 +15,18 @@ pub struct FrpcToml {
     pub udp_remote_port: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Auth {
     token: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct WebServer {
     addr: String,
     port: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Proxy {
     name: String,
@@ -38,7 +38,7 @@ struct Proxy {
     remote_port: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     server_addr: String,
@@ -91,6 +91,20 @@ pub async fn frpc_config_write(config: &FrpcToml, path: &str) -> Result<(), Box<
     fs::write(path, toml_string).await?;
 
     println!("sucess write frpc.toml to {}", path);
+
+    Ok(())
+}
+
+pub async fn frpc_config_reset_by_index(path: &str, index: u8) -> Result<(), Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string(path).await?;
+
+    let mut config: Config = toml::from_str(&contents)?;
+    for proxy in config.proxies.iter_mut() {
+        proxy.remote_port += index as u16;
+    }
+
+    let toml_string = toml::to_string_pretty(&config)?;
+    fs::write(path, toml_string).await?;
 
     Ok(())
 }
