@@ -71,7 +71,10 @@ async fn main() {
         udp_remote_port: UDP_LOCAL_PORT + index as u16,
     };
     let _ = frpc_config_write(&config, FRPC_TOML_PATH).await.unwrap();
-    let _ = frpc_config_reload().await.unwrap();
+    let res = frpc_config_reload().await.unwrap();
+    if !res.success() {
+        return;
+    }
 
     let (tx, _rx) = broadcast::channel(100);
     let app = Router::new()
