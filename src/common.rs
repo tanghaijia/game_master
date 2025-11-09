@@ -34,7 +34,7 @@ pub fn get_index() -> anyhow::Result<u8> {
     let ip = get_local_ip().unwrap();
     let ip_vec = splite_ip(&ip).unwrap();
     let last_number = *ip_vec.get(3).unwrap();
-    if (last_number < 200) {
+    if last_number < 200 {
         bail!("last ip address is less than 200 ");
     }
     Ok(last_number - INDEX_OFFSET)

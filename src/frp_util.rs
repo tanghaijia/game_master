@@ -143,13 +143,13 @@ mod tests {
             udp_name: "7daysTodieServerUDP26902".to_string(),
             udp_remote_port: 26902,
         };
-        let res = frpc_config_write(&config, "C:\\Users\\89396\\projects\\game_master\\frpc.toml").await.unwrap();
+        let _ = frpc_config_write(&config, "C:\\Users\\89396\\projects\\game_master\\frpc.toml").await.unwrap();
 
         ()
     }
 
     #[tokio::test]
     async fn frpc_config_read_test() {
-        let config = frpc_config_read("C:\\Users\\89396\\Downloads\\frp_0.65.0_windows_amd64\\frp_0.65.0_windows_amd64\\frpc.toml").await.unwrap();
+        let _ = frpc_config_read("C:\\Users\\89396\\Downloads\\frp_0.65.0_windows_amd64\\frp_0.65.0_windows_amd64\\frpc.toml").await.unwrap();
     }
 }

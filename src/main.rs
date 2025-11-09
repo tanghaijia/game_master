@@ -2,6 +2,9 @@ mod gameserver_util;
 mod frp_util;
 mod const_value;
 mod common;
+mod game_config_util;
+mod data_server_util;
+mod error;
 
 use axum::{extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
@@ -10,53 +13,19 @@ use axum::{extract::{
 use std::{sync::Arc, time::Duration};
 use std::sync::Mutex;
 use std::thread::sleep;
-use axum::extract::ws;
+use axum::extract::{ws, Query};
 use axum::http::StatusCode;
-use axum::response::Response;
 use axum::routing::post;
 use futures::{SinkExt, StreamExt};
+use serde::Deserialize;
 use tokio::sync::{broadcast};
 use crate::common::get_index;
 use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
+use crate::data_server_util::{get_game_config_by_user_id};
+use crate::error::AppError;
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
+use crate::game_config_util::{GameConfigUtil, ServerSettings};
 use crate::gameserver_util::{start_game_server};
-
-enum AppError {
-    // 专门用于处理读取配置文件失败的错误
-    ConfigReadError(String),
-    ConfigWriteError(String),
-    ConfigReloadError(String),
-    ConfigResetByIndexError(String),
-    BadBodyError(String)
-}
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::ConfigReadError(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to read config file: {}", msg),
-            ),
-            AppError::ConfigWriteError(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to write config file: {}", msg),
-            ),
-            AppError::ConfigReloadError(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to reload config file: {}", msg),
-            ),
-            AppError::BadBodyError(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Bed body: {}", msg),
-            ),
-            AppError::ConfigResetByIndexError(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to reset config file by index: {}", msg),
-            )
-        };
-
-        (status, error_message).into_response()
-    }
-}
 
 struct MasterState {
     gamer_server_running: bool,
@@ -67,9 +36,6 @@ struct MasterState {
 async fn main() {
     let index = get_index().unwrap();
     println!("index is {}", index);
-    let masterstate = Arc::new(Mutex::new(
-        MasterState { gamer_server_running: false, index: index },
-    ));
 
     let config = FrpcToml {
         server_addr: "124.223.27.133".to_string(),
@@ -86,13 +52,34 @@ async fn main() {
         return;
     }
 
+    // 初始化GameConfigUtil
+    let settings_data = ServerSettings {
+        server_name: "Local Game Host".to_string(),
+        server_description: "A 7 Days to Die server".to_string(),
+        server_password: "".to_string(),
+        language: "English".to_string(),
+        server_max_player_count: 8,
+        eac_enabled: true,
+        game_difficulty: 1,
+        party_shared_kill_range: 100,
+        player_killing_mode: 3
+    };
+    let game_config_util = GameConfigUtil::new();
+    game_config_util.set_serverconfig_xml(&settings_data).await.expect("Set serverconfig.xml Error");
+
+    // 初始化state
+    let masterstate = Arc::new(Mutex::new(
+        MasterState { gamer_server_running: false, index: index },
+    ));
+
     let (tx, _rx) = broadcast::channel(100);
     let app = Router::new()
         .route("/hello", get(|| async { "Hello, World!" }))
         .route("/status", get(status))
-        .route("/start_7days", get(start_7days)).with_state(masterstate.clone())
+        .route("/start_7days", get(start_7days))
+            .with_state(masterstate.clone())
         .route("/7daysserverlog", get(ws_handler))
-        .with_state(Arc::new(AppState { tx }))
+            .with_state(Arc::new(AppState { tx }))
         .route("/get_frpc_toml", get(get_frpc_toml))
         .route("/reset_frpc_toml", post(reset_frpc_toml))
         .route("/reset_frpc_toml_by_index", post(reset_frpc_toml_by_index));
@@ -100,19 +87,6 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
         .await
         .unwrap();
-
-    let mut child = start_game_server().expect("Failed to start game server");
-    {
-        let mut state = masterstate.lock().unwrap(); // .unwrap() 用于处理锁可能被“毒化”的错误
-        state.gamer_server_running = true;
-        println!("Game server state set to running.");
-    }
-    tokio::spawn(async move {
-        child.wait().await.expect("Failed to wait game server");
-        let mut state = masterstate.lock().unwrap();
-        state.gamer_server_running = false;
-        println!("Game server shutdown");
-    });
 
     println!("start listening on port 3005");
     axum::serve(listener, app).await.unwrap();
@@ -122,10 +96,32 @@ async fn status() -> &'static str {
     "index=0;7daysserrver=stop;"
 }
 
-async fn start_7days(State(masterstate): State<Arc<Mutex<MasterState>>>) -> (StatusCode, &'static str) {
-    let mut state = masterstate.lock().unwrap();
+#[derive(Deserialize, Debug)]
+struct Start7DaysParam {
+    user_id: i32,
+    save_file_id: i32
+}
+#[axum::debug_handler]
+async fn start_7days(
+    State(masterstate): State<Arc<Mutex<MasterState>>>,
+    Query(params): Query<Start7DaysParam>) -> Result<StatusCode, AppError> {
+    println!("start 7days by user_id: {} save_file_id: {}", params.user_id, params.save_file_id);
+
+    // // 配置serverconfig.xml
+    let game_config = get_game_config_by_user_id(params.user_id)
+        .await
+        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+    let game_config_util = GameConfigUtil::new();
+    game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
+
+    // TODO 拉取存档
+
+
+    // 启动7days
+    // 获取state
+    let state = masterstate.lock().unwrap();
     if state.gamer_server_running {
-        return ( StatusCode::OK, "game server is running");
+        return Err(AppError::GameIsRunning);
     }
 
     let masterstate2 = masterstate.clone();
@@ -144,7 +140,7 @@ async fn start_7days(State(masterstate): State<Arc<Mutex<MasterState>>>) -> (Sta
         println!("Game server shutdown");
     });
 
-    ( StatusCode::OK, "game server start to run." )
+    Ok(StatusCode::OK)
 }
 
 async fn get_frpc_toml() -> Result<Json<Config>, AppError> {
@@ -174,7 +170,7 @@ async fn reset_frpc_toml_by_index(body: String) -> Result<StatusCode, AppError> 
 
     frpc_config_reset_by_index(FRPC_TOML_PATH, index)
         .await
-        .map_err(|e| AppError::ConfigWriteError(e.to_string()))?;
+        .map_err(|e| AppError::ConfigResetByIndexError(e.to_string()))?;
 
     println!("reset frpc toml by index: {}", index);
     Ok(StatusCode::OK)
