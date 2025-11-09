@@ -98,7 +98,8 @@ pub async fn frpc_config_write(config: &FrpcToml, path: &str) -> Result<(), Box<
 pub async fn frpc_config_reload() -> anyhow::Result<ExitStatus> {
     let status = Command::new(FRPC_EXE_PATH)
         .arg("reload")
-        .arg(format!("-c {}", FRPC_TOML_PATH))
+        .arg("-c")
+        .arg(FRPC_TOML_PATH)
         .spawn()?
         .wait().await.unwrap();
 
