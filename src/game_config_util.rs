@@ -4,7 +4,7 @@ use tera::{Tera, Context};
 use tokio::fs;
 use crate::const_value::SERVERCONFIG_XML_PATH;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ServerSettings {
     pub server_name: String,
     pub server_description: String,
@@ -37,7 +37,6 @@ impl GameConfigUtil {
         context.insert("settings", server_settings);
 
         let xml = self.tera.render("serverconfig.xml", &context)?;
-        println!("{}", xml);
 
         Ok(xml)
     }
@@ -50,6 +49,7 @@ impl GameConfigUtil {
         let xml = self.render(server_settings)?;
         fs::write(SERVERCONFIG_XML_PATH, xml).await?;
 
+        println!("set serverconfig xml to {:#?}", server_settings);
         Ok(())
     }
 }

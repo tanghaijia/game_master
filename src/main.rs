@@ -11,7 +11,7 @@ use axum::{extract::{
     State,
 }, response::IntoResponse, routing::get, Json, Router};
 use std::{sync::Arc, time::Duration};
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use std::thread::sleep;
 use axum::extract::{ws, Query};
 use axum::http::StatusCode;
@@ -123,25 +123,28 @@ async fn start_7days(
 
     // 启动7days
     // 获取state
-    let state = masterstate.lock().unwrap();
-    if state.gamer_server_running {
-        return Err(AppError::GameIsRunning);
-    }
-
-    let masterstate2 = masterstate.clone();
-    let mut child = start_game_server().expect("Failed to start game server");
     {
-        let mut state = masterstate2.lock().unwrap(); // .unwrap() 用于处理锁可能被“毒化”的错误
-        state.gamer_server_running = true;
-        println!("Game server state set to running.");
+        let mut state = masterstate.lock().await;
+        if state.gamer_server_running {
+            return Err(AppError::GameIsRunning);
+        }
     }
 
     let masterstate2 = masterstate.clone();
     tokio::spawn(async move {
+        let mut child = start_game_server().expect("Failed to start game server");
+        {
+            let mut state = masterstate2.lock().await;
+            state.gamer_server_running = true;
+            println!("Game server state set to running.");
+        }
         child.wait().await.expect("Failed to wait game server");
-        let mut state = masterstate2.lock().unwrap();
-        state.gamer_server_running = false;
-        println!("Game server shutdown");
+        {
+            let mut state = masterstate2.lock().await;
+            state.gamer_server_running = false;
+            state.seven_days_child = None;
+            println!("Game server shutdown");
+        };
     });
 
     Ok(StatusCode::OK)
@@ -155,7 +158,7 @@ async fn stop_7days(
 
     // 启动7days
     // 获取state
-    let mut state = masterstate.lock().unwrap();
+    let mut state = masterstate.lock().await;
     if !state.gamer_server_running {
         return Ok(StatusCode::OK);
     }
