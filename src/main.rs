@@ -17,7 +17,7 @@ use axum::routing::post;
 use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast};
 use crate::common::get_index;
-use crate::const_value::FRPC_TOML_PATH;
+use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_write, Config, FrpcToml};
 use crate::gameserver_util::{start_game_server};
 
@@ -60,6 +60,18 @@ async fn main() {
     let masterstate = Arc::new(Mutex::new(
         MasterState { gamer_server_running: false, index: index },
     ));
+
+    let config = FrpcToml {
+        server_addr: "124.223.27.133".to_string(),
+        server_port: 7000,
+        auth_token: "123456".to_string(),
+        tcp_name: format!("7daysTodieServer-{}", index),
+        tcp_remote_port: TCP_LOCAL_PORT + index as u16,
+        udp_name: format!("7daysTodieServerUDP-{}", index),
+        udp_remote_port: UDP_LOCAL_PORT + index as u16,
+    };
+    let _ = frpc_config_write(&config, FRPC_TOML_PATH).await.unwrap();
+    let _ = frpc_config_reload().await.unwrap();
 
     let (tx, _rx) = broadcast::channel(100);
     let app = Router::new()
