@@ -102,10 +102,10 @@ pub async fn frpc_config_reset_by_index(path: &str, index: u8) -> Result<(), Box
     for proxy in config.proxies.iter_mut() {
         if proxy.proxy_type == "tcp" {
             proxy.name = format!("7daysTodieServer-{}", index);
-            proxy.remote_port += TCP_LOCAL_PORT + index as u16;
+            proxy.remote_port = TCP_LOCAL_PORT + index as u16;
         } else if proxy.proxy_type == "udp" {
             proxy.name = format!("7daysTodieServerUDP-{}", index);
-            proxy.remote_port += UDP_LOCAL_PORT + index as u16;
+            proxy.remote_port = UDP_LOCAL_PORT + index as u16;
         }
     }
 

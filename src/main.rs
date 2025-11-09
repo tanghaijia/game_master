@@ -176,6 +176,7 @@ async fn reset_frpc_toml_by_index(body: String) -> Result<StatusCode, AppError> 
         .await
         .map_err(|e| AppError::ConfigWriteError(e.to_string()))?;
 
+    println!("reset frpc toml by index: {}", index);
     Ok(StatusCode::OK)
 }
 
