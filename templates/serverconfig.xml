@@ -6,7 +6,7 @@
 	<property name="ServerName"						value="{{ settings.server_name }}"/>		<!-- Whatever you want the name of the server to be. -->
 	<property name="ServerDescription"				value="{{ settings.server_description }}"/>	<!-- Whatever you want the server description to be, will be shown in the server browser. -->
 	<property name="ServerWebsiteURL"				value=""/>					<!-- Website URL for the server, will be shown in the server browser as a clickable link -->
-	<property name="ServerPassword"					value="{{ settings.server_description }}"/>					<!-- Password to gain entry to the server -->
+	<property name="ServerPassword"					value="{{ settings.server_password }}"/>					<!-- Password to gain entry to the server -->
 	<property name="ServerLoginConfirmationText"	value=""/>					<!-- If set the user will see the message during joining the server and has to confirm it before continuing. For more complex changes to this window you can change the "serverjoinrulesdialog" window in XUi -->
 	<property name="Region"							value="NorthAmericaEast"/>	<!-- The region this server is in. Values: NorthAmericaEast, NorthAmericaWest, CentralAmerica, SouthAmerica, Europe, Russia, Asia, MiddleEast, Africa, Oceania -->
 	<property name="Language"						value="{{ settings.language }}"/>			<!-- Primary language for players on this server. Values: Use any language name that you would users expect to search for. Should be the English name of the language, e.g. not "Deutsch" but "German" -->
