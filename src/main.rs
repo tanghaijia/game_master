@@ -18,6 +18,7 @@ use axum::http::StatusCode;
 use axum::routing::post;
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
+use tokio::process::Child;
 use tokio::sync::{broadcast};
 use crate::common::get_index;
 use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
@@ -29,7 +30,8 @@ use crate::gameserver_util::{start_game_server};
 
 struct MasterState {
     gamer_server_running: bool,
-    index: u8
+    index: u8,
+    seven_days_child: Option<Child>,
 }
 
 #[tokio::main]
@@ -69,7 +71,7 @@ async fn main() {
 
     // 初始化state
     let masterstate = Arc::new(Mutex::new(
-        MasterState { gamer_server_running: false, index: index },
+        MasterState { gamer_server_running: false, index: index, seven_days_child: None },
     ));
 
     let (tx, _rx) = broadcast::channel(100);
@@ -77,6 +79,8 @@ async fn main() {
         .route("/hello", get(|| async { "Hello, World!" }))
         .route("/status", get(status))
         .route("/start_7days", get(start_7days))
+            .with_state(masterstate.clone())
+        .route("/stop_7days", get(stop_7days))
             .with_state(masterstate.clone())
         .route("/7daysserverlog", get(ws_handler))
             .with_state(Arc::new(AppState { tx }))
@@ -105,7 +109,7 @@ struct Start7DaysParam {
 async fn start_7days(
     State(masterstate): State<Arc<Mutex<MasterState>>>,
     Query(params): Query<Start7DaysParam>) -> Result<StatusCode, AppError> {
-    println!("start 7days by user_id: {} save_file_id: {}", params.user_id, params.save_file_id);
+    println!("start 7days by user_id: {} save_file_id: {} ...", params.user_id, params.save_file_id);
 
     // // 配置serverconfig.xml
     let game_config = get_game_config_by_user_id(params.user_id)
@@ -139,6 +143,28 @@ async fn start_7days(
         state.gamer_server_running = false;
         println!("Game server shutdown");
     });
+
+    Ok(StatusCode::OK)
+}
+
+
+#[axum::debug_handler]
+async fn stop_7days(
+    State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<StatusCode, AppError> {
+    println!("stop 7days ...");
+
+    // 启动7days
+    // 获取state
+    let mut state = masterstate.lock().unwrap();
+    if !state.gamer_server_running {
+        return Ok(StatusCode::OK);
+    }
+
+    let mut child = state.seven_days_child.take().unwrap();
+    child.start_kill().map_err(|e| AppError::StopProcessError(e.to_string()))?;
+
+    child.wait();
+    println!("sucess stop 7days");
 
     Ok(StatusCode::OK)
 }

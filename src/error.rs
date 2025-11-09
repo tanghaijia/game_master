@@ -10,7 +10,8 @@ pub enum AppError {
     BadBodyError(String),
     GameIsRunning,
     DataServerFucRrror(String),
-    SetServerConfigXmlErrror(String)
+    SetServerConfigXmlErrror(String),
+    StopProcessError(String)
 }
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
@@ -46,6 +47,10 @@ impl IntoResponse for AppError {
             AppError::SetServerConfigXmlErrror(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("set serverconfig.xml error: {}", msg),
+            ),
+            AppError::StopProcessError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("stop process error: {}", msg),
             ),
         };
 
