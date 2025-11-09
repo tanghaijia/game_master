@@ -61,7 +61,7 @@ async fn main() {
         server_password: "".to_string(),
         language: "English".to_string(),
         server_max_player_count: 8,
-        eac_enabled: true,
+        eac_enabled: false,
         game_difficulty: 1,
         party_shared_kill_range: 100,
         player_killing_mode: 3
