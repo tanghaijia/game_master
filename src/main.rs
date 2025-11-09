@@ -65,7 +65,7 @@ struct MasterState {
 
 #[tokio::main]
 async fn main() {
-    let index = get_index();
+    let index = get_index().unwrap();
     println!("index is {}", index);
     let masterstate = Arc::new(Mutex::new(
         MasterState { gamer_server_running: false, index: index },
