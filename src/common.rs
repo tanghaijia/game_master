@@ -1,4 +1,3 @@
-use std::net::Ipv4Addr;
 use std::num::ParseIntError;
 use local_ip_address::{list_afinet_netifas};
 use crate::const_value::{INDEX_OFFSET,  NET_INTERFACE_NAME};
