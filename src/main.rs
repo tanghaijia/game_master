@@ -17,7 +17,7 @@ use axum::extract::{ws, Query};
 use axum::http::StatusCode;
 use axum::routing::post;
 use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::process::Child;
 use tokio::sync::{broadcast};
 use crate::common::get_index;
@@ -78,6 +78,7 @@ async fn main() {
     let app = Router::new()
         .route("/hello", get(|| async { "Hello, World!" }))
         .route("/status", get(status))
+            .with_state(masterstate.clone())
         .route("/start_7days", get(start_7days))
             .with_state(masterstate.clone())
         .route("/stop_7days", get(stop_7days))
@@ -96,8 +97,19 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn status() -> &'static str {
-    "index=0;7daysserrver=stop;"
+#[derive(Serialize, Debug)]
+struct Status {
+    index: u8,
+    days7server_running: bool,
+}
+async fn status(State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<Json<Status>, AppError> {
+    let index = get_index().unwrap_or_else(|e| 255);
+    let state = masterstate.lock().await;
+    let status = Status {
+        index,
+        days7server_running: state.gamer_server_running,
+    };
+    Ok(Json(status))
 }
 
 #[derive(Deserialize, Debug)]
