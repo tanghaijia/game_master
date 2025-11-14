@@ -33,7 +33,7 @@ pub struct  SaveFileInfo {
 pub async fn get_savefile_info_by_save_file_id(save_file_id: i32) -> anyhow::Result<SaveFileInfo> {
     let data_server_ip_address = env::var("DATA_SERVER_IP_ADDR")?;
     let url = format!("http://{}:{}/api/game_master/download_savefile?save_file_id={}",
-                      data_server_ip_address, DATA_SERVER_PORT, save_file_id,);
+                      data_server_ip_address, DATA_SERVER_PORT, save_file_id);
     println!("get_savefile_info_by_save_file_id url: {}", url);
     let response = reqwest::get(url).await?;
 
@@ -49,7 +49,8 @@ pub async fn get_savefile_info_by_save_file_id(save_file_id: i32) -> anyhow::Res
 
 #[cfg(test)]
 mod tests {
-    use crate::data_server_util::SaveFileInfo;
+    use dotenv::dotenv;
+    use crate::data_server_util::{get_savefile_info_by_save_file_id, SaveFileInfo};
     use crate::game_config_util::ServerSettings;
 
     #[tokio::test]
@@ -66,8 +67,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_savefile_info_by_save_file_id() {
-        let url = "http://192.168.8.88:3000/api/game_master/download_savefile?save_file_id=1";
+    async fn retest_get_savefile_info_by_save_file_id() {
+        let url = "http://localhost:3000/api/game_master/download_savefile?save_file_id=1";
         let response = reqwest::get(url).await.unwrap();
 
         if response.status().is_success() {
@@ -76,5 +77,11 @@ mod tests {
         } else {
             println!("请求失败，状态码: {}", response.status());
         }
+    }
+
+    #[tokio::test]
+    async fn test_get_savefile_info_by_save_file_id() {
+        let _ = dotenv();
+        get_savefile_info_by_save_file_id(1).await.unwrap();
     }
 }
