@@ -139,20 +139,20 @@ async fn start_7days(
     // // 配置serverconfig.xml
     let game_config = get_game_config_by_serverconfig_id(params.serverconfig_id)
         .await
-        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+        .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
     let game_config_util = GameConfigUtil::new();
     game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
 
     // 拉取存档
     let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
         .await
-        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+        .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
     let s3client = get_rustfs_client().await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
     let filepath = format!("{}/{}", TEMP_DIR, savefile_info.name);
     let _ = download_file(&s3client, filepath.as_str(), savefile_info.bucket_name.as_str(),
                   format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
         .await
-        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+        .map_err(|e| AppError::DownloadError(e.to_string()))?;
     let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
     unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH)
         .map_err(|e| AppError::UnzipError(e.to_string()))?;

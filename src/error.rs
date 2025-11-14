@@ -9,11 +9,12 @@ pub enum AppError {
     ConfigResetByIndexError(String),
     BadBodyError(String),
     GameIsRunning,
-    DataServerFucRrror(String),
+    DataServerFucError(String),
     SetServerConfigXmlErrror(String),
     StopProcessError(String),
     GetS3ClientError(String),
     UnzipError(String),
+    DownloadError(String),
     IOError(std::io::Error),
 }
 impl IntoResponse for AppError {
@@ -43,7 +44,7 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("gamme is running"),
             ),
-            AppError::DataServerFucRrror(msg) => (
+            AppError::DataServerFucError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("visit dataserver func error: {}", msg),
             ),
@@ -58,6 +59,10 @@ impl IntoResponse for AppError {
             AppError::GetS3ClientError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("get s3 client error: {}", msg),
+            ),
+            AppError::DownloadError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("download file error: {}", msg),
             ),
             AppError::IOError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
