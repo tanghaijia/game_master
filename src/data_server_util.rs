@@ -3,7 +3,7 @@ use std::env;
 use crate::const_value::DATA_SERVER_PORT;
 
 pub async fn get_game_config_by_serverconfig_id(serverconfig_id: i32) -> anyhow::Result<ServerSettings> {
-    let data_server_ip_address = env::var("HOME")?;
+    let data_server_ip_address = env::var("DATA_SERVER_IP_ADDR")?;
     let url = format!("http://{}:{}/api/game_master/game_config?serverconfig_id={}",
         data_server_ip_address, DATA_SERVER_PORT, serverconfig_id,);
     println!("get_game_config_by_serverconfig_id url: {}", url);
