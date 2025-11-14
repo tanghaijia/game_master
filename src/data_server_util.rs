@@ -6,6 +6,7 @@ pub async fn get_game_config_by_serverconfig_id(serverconfig_id: i32) -> anyhow:
     let data_server_ip_address = env::var("HOME")?;
     let url = format!("http://{}:{}/api/game_master/game_config?serverconfig_id={}",
         data_server_ip_address, DATA_SERVER_PORT, serverconfig_id,);
+    println!("get_game_config_by_serverconfig_id url: {}", url);
     let response = reqwest::get(url).await?;
 
     if response.status().is_success() {
