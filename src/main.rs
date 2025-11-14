@@ -22,7 +22,7 @@ use tokio::process::Child;
 use tokio::sync::{broadcast};
 use crate::common::get_index;
 use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
-use crate::data_server_util::{get_game_config_by_user_id};
+use crate::data_server_util::get_game_config_by_serverconfig_id;
 use crate::error::AppError;
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
 use crate::game_config_util::{GameConfigUtil, ServerSettings};
@@ -36,6 +36,8 @@ struct MasterState {
 
 #[tokio::main]
 async fn main() {
+    dotenv::dotenv().ok();
+
     let index = get_index().unwrap();
     println!("index is {}", index);
 
@@ -114,17 +116,17 @@ async fn status(State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<Js
 
 #[derive(Deserialize, Debug)]
 struct Start7DaysParam {
-    user_id: i32,
+    serverconfig_id: i32,
     save_file_id: i32
 }
 #[axum::debug_handler]
 async fn start_7days(
     State(masterstate): State<Arc<Mutex<MasterState>>>,
     Query(params): Query<Start7DaysParam>) -> Result<StatusCode, AppError> {
-    println!("start 7days by user_id: {} save_file_id: {} ...", params.user_id, params.save_file_id);
+    println!("start 7days by serverconfig_id: {} save_file_id: {} ...", params.serverconfig_id, params.save_file_id);
 
     // // 配置serverconfig.xml
-    let game_config = get_game_config_by_user_id(params.user_id)
+    let game_config = get_game_config_by_serverconfig_id(params.serverconfig_id)
         .await
         .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
     let game_config_util = GameConfigUtil::new();

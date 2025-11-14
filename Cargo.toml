@@ -17,6 +17,8 @@ axum = {version = "0.8.6", features = ["ws", "macros"]}
 futures = "0.3.31"
 local-ip-address = "0.6.5"
 serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "*", features = ["json"] }
 toml = "0.8"
 anyhow = "1.0.100"
 tera = "1.20.1"
+dotenv = "0.15.0"

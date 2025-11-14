@@ -6,3 +6,4 @@ pub const NET_INTERFACE_NAME: &str = "eth0";
 pub const INDEX_OFFSET: u8 = 200;
 pub const TCP_LOCAL_PORT: u16 = 26900;
 pub const UDP_LOCAL_PORT: u16 = 26902;
+pub const DATA_SERVER_PORT: u16 = 3000;

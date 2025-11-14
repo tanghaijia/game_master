@@ -1,10 +1,10 @@
 use anyhow::bail;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tera::{Tera, Context};
 use tokio::fs;
 use crate::const_value::SERVERCONFIG_XML_PATH;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ServerSettings {
     pub server_name: String,
     pub server_description: String,
