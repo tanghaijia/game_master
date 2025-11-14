@@ -5,6 +5,8 @@ mod common;
 mod game_config_util;
 mod data_server_util;
 mod error;
+mod s3;
+mod archive;
 
 use axum::{extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
@@ -17,16 +19,20 @@ use axum::extract::{ws, Query};
 use axum::http::StatusCode;
 use axum::routing::post;
 use futures::{SinkExt, StreamExt};
+use futures::future::ok;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 use tokio::process::Child;
 use tokio::sync::{broadcast};
+use crate::archive::unzip;
 use crate::common::get_index;
-use crate::const_value::{FRPC_TOML_PATH, TCP_LOCAL_PORT, UDP_LOCAL_PORT};
-use crate::data_server_util::get_game_config_by_serverconfig_id;
+use crate::const_value::{FRPC_TOML_PATH, SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH, SEVENDAYS_SERVER_SAVEFILE_PATH, TCP_LOCAL_PORT, TEMP_DIR, UDP_LOCAL_PORT};
+use crate::data_server_util::{get_game_config_by_serverconfig_id, get_savefile_info_by_save_file_id};
 use crate::error::AppError;
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
 use crate::game_config_util::{GameConfigUtil, ServerSettings};
 use crate::gameserver_util::{start_game_server};
+use crate::s3::{download_file, get_rustfs_client};
 
 struct MasterState {
     gamer_server_running: bool,
@@ -34,9 +40,15 @@ struct MasterState {
     seven_days_child: Option<Child>,
 }
 
+async fn init() -> anyhow::Result<()> {
+    fs::create_dir_all(TEMP_DIR).await?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
+    init().await.expect("Init failed");
 
     let index = get_index().unwrap();
     println!("index is {}", index);
@@ -132,8 +144,19 @@ async fn start_7days(
     let game_config_util = GameConfigUtil::new();
     game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
 
-    // TODO 拉取存档
-
+    // 拉取存档
+    let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
+        .await
+        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+    let s3client = get_rustfs_client().await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+    let filepath = format!("{}/{}", TEMP_DIR, savefile_info.name);
+    let _ = download_file(&s3client, filepath.as_str(), savefile_info.bucket_name.as_str(),
+                  format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
+        .await
+        .map_err(|e| AppError::DataServerFucRrror(e.to_string()))?;
+    let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
+    unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH)
+        .map_err(|e| AppError::UnzipError(e.to_string()))?;
 
     // 启动7days
     // 获取state
@@ -277,7 +300,9 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
 mod tests {
     use axum::Router;
     use axum::routing::get;
+    use tokio::fs;
     use crate::{get_frpc_toml};
+    use crate::const_value::TEMP_DIR;
 
     #[tokio::test]
     async fn get_fpc_toml_test() {
@@ -290,5 +315,10 @@ mod tests {
             .unwrap();
 
         axum::serve(listener, app).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_dir_test() {
+        fs::create_dir_all("C:\\Users\\89396\\projects\\game_master\\script").await.unwrap();
     }
 }

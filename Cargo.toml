@@ -22,3 +22,6 @@ toml = "0.8"
 anyhow = "1.0.100"
 tera = "1.20.1"
 dotenv = "0.15.0"
+aws-config = { version = "1.8.10", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.112.0"
+zip = { version = "6.0.0"}

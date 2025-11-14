@@ -11,7 +11,10 @@ pub enum AppError {
     GameIsRunning,
     DataServerFucRrror(String),
     SetServerConfigXmlErrror(String),
-    StopProcessError(String)
+    StopProcessError(String),
+    GetS3ClientError(String),
+    UnzipError(String),
+    IOError(std::io::Error),
 }
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
@@ -51,6 +54,18 @@ impl IntoResponse for AppError {
             AppError::StopProcessError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("stop process error: {}", msg),
+            ),
+            AppError::GetS3ClientError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("get s3 client error: {}", msg),
+            ),
+            AppError::IOError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("io error: {}", msg),
+            ),
+            AppError::UnzipError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("unzip error: {}", msg),
             ),
         };
 
