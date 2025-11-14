@@ -79,6 +79,7 @@ pub async fn upload_file(rustfs_client: &Client, path: &str, bucket: &str, key: 
 }
 
 pub async fn download_file(rustfs_client: &Client, path: &str, bucket: &str, key: &str) -> anyhow::Result<()> {
+    let _ = fs::remove_file(path).await;
     let mut file = File::create(path).await?;
     let mut object = rustfs_client.get_object().bucket(bucket).key(key).send().await?;
     while let Some(bytes) = object.body.try_next().await? {
@@ -90,7 +91,7 @@ pub async fn download_file(rustfs_client: &Client, path: &str, bucket: &str, key
 
 #[cfg(test)]
 mod tests {
-    use crate::s3::get_rustfs_client;
+    use crate::s3::{download_file, get_rustfs_client};
 
     #[tokio::test]
     async fn test_rustfs_client() {
@@ -102,6 +103,14 @@ mod tests {
         for bucket in res.buckets() {
             println!("Bucket: {:?}", bucket.name());
         }
+
+    }
+
+    #[tokio::test]
+    async fn test_download_file() {
+        dotenv::dotenv().ok();
+        let rustfs_client = get_rustfs_client().await.unwrap();
+        download_file(&rustfs_client,"C:\\Users\\89396\\projects\\game_master\\file.zip", "days7server", "000001/MyGame.zip").await.unwrap();
 
     }
 }
