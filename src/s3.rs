@@ -2,7 +2,6 @@ use std::env;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::types::Bucket;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;

@@ -19,7 +19,6 @@ use axum::extract::{ws, Query};
 use axum::http::StatusCode;
 use axum::routing::post;
 use futures::{SinkExt, StreamExt};
-use futures::future::ok;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::Child;
@@ -302,7 +301,6 @@ mod tests {
     use axum::routing::get;
     use tokio::fs;
     use crate::{get_frpc_toml};
-    use crate::const_value::TEMP_DIR;
 
     #[tokio::test]
     async fn get_fpc_toml_test() {
