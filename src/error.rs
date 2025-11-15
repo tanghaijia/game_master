@@ -14,7 +14,9 @@ pub enum AppError {
     StopProcessError(String),
     GetS3ClientError(String),
     UnzipError(String),
+    ZipError(String),
     DownloadError(String),
+    UploadError(String),
     IOError(std::io::Error),
     KillCommandError(String)
 }
@@ -65,6 +67,10 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("download file error: {}", msg),
             ),
+            AppError::UploadError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("upload file error: {}", msg),
+            ),
             AppError::IOError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("io error: {}", msg),
@@ -72,6 +78,10 @@ impl IntoResponse for AppError {
             AppError::UnzipError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("unzip error: {}", msg),
+            ),
+            AppError::ZipError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("zip error: {}", msg),
             ),
             AppError::KillCommandError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

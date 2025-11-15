@@ -23,15 +23,15 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::{Child, Command};
 use tokio::sync::{broadcast};
-use crate::archive::unzip;
+use crate::archive::{unzip, zip};
 use crate::common::get_index;
-use crate::const_value::{FRPC_TOML_PATH, SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH, SEVENDAYS_SERVER_SAVEFILE_PATH, TCP_LOCAL_PORT, TEMP_DIR, UDP_LOCAL_PORT};
+use crate::const_value::{FRPC_TOML_PATH, SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH, SEVENDAYS_SERVER_SAVEFILE_PATH, TCP_LOCAL_PORT, TEMP_DIR, TEMP_SEVENDAYS_SAVEFILE_ZIP, UDP_LOCAL_PORT};
 use crate::data_server_util::{get_game_config_by_serverconfig_id, get_savefile_info_by_save_file_id};
 use crate::error::AppError;
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
 use crate::game_config_util::{GameConfigUtil, ServerSettings};
 use crate::gameserver_util::{start_game_server};
-use crate::s3::{download_file, get_rustfs_client};
+use crate::s3::{download_file, get_rustfs_client, upload_file};
 
 struct MasterState {
     gamer_server_running: bool,
@@ -157,7 +157,7 @@ async fn start_7days(
     let game_config_util = GameConfigUtil::new();
     game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
     let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
-    unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH)
+    unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PATH)
         .map_err(|e| AppError::UnzipError(e.to_string()))?;
 
     // 启动7days
@@ -193,6 +193,7 @@ async fn start_7days(
 
 #[axum::debug_handler]
 async fn stop_7days(
+    Query(params): Query<Start7DaysParam>,
     State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<StatusCode, AppError> {
     println!("stop 7days ...");
 
@@ -213,6 +214,17 @@ async fn stop_7days(
         let _ = cmd.wait().await.map_err(|e| AppError::KillCommandError(e.to_string()))?;
         println!("Send kill command to {} prrocess", pid);
     }
+    let _ = fs::remove_dir_all(TEMP_SEVENDAYS_SAVEFILE_ZIP).await;
+    zip(SEVENDAYS_SERVER_SAVEFILE_PATH, TEMP_SEVENDAYS_SAVEFILE_ZIP).map_err(|e| AppError::ZipError(e.to_string()))?;
+
+    let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
+        .await
+        .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
+    let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+    let _ = upload_file(&s3client, TEMP_SEVENDAYS_SAVEFILE_ZIP, savefile_info.bucket_name.as_str(),
+                          format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
+        .await
+        .map_err(|e| AppError::DownloadError(e.to_string()))?;
 
     Ok(StatusCode::OK)
 }
