@@ -164,10 +164,11 @@ async fn start_7days(
         let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
         unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PATH)
             .map_err(|e| AppError::UnzipError(e.to_string()))?;
+    } else {
+        let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
     }
 
     // 磁盘io操作
-    let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
     let game_config_util = GameConfigUtil::new();
     game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
 
