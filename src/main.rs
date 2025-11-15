@@ -14,7 +14,6 @@ use axum::{extract::{
 }, response::IntoResponse, routing::get, Json, Router};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
-use std::thread::sleep;
 use axum::extract::{ws, Query};
 use axum::http::StatusCode;
 use axum::routing::post;
@@ -23,9 +22,10 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::{Child, Command};
 use tokio::sync::{broadcast};
+use tokio::time::sleep;
 use crate::archive::{unzip, zip};
 use crate::common::get_index;
-use crate::const_value::{FRPC_TOML_PATH, SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH, SEVENDAYS_SERVER_SAVEFILE_PATH, TCP_LOCAL_PORT, TEMP_DIR, TEMP_SEVENDAYS_SAVEFILE_ZIP, UDP_LOCAL_PORT};
+use crate::const_value::{FRPC_TOML_PATH, SEVENDAYS_SERVER_SAVEFILE_PARENT_PATH, SEVENDAYS_SERVER_SAVEFILE_PATH, SEVENDAYS_STOP_TIME, TCP_LOCAL_PORT, TEMP_DIR, TEMP_SEVENDAYS_SAVEFILE_ZIP, UDP_LOCAL_PORT};
 use crate::data_server_util::{get_game_config_by_serverconfig_id, get_savefile_info_by_save_file_id};
 use crate::error::AppError;
 use crate::frp_util::{frpc_config_read, frpc_config_reload, frpc_config_reset_by_index, frpc_config_write, Config, FrpcToml};
@@ -214,13 +214,16 @@ async fn stop_7days(
         let _ = cmd.wait().await.map_err(|e| AppError::KillCommandError(e.to_string()))?;
         println!("Send kill command to {} prrocess", pid);
     }
-    let _ = fs::remove_dir_all(TEMP_SEVENDAYS_SAVEFILE_ZIP).await;
-    zip(SEVENDAYS_SERVER_SAVEFILE_PATH, TEMP_SEVENDAYS_SAVEFILE_ZIP).map_err(|e| AppError::ZipError(e.to_string()))?;
+    sleep(Duration::from_secs(SEVENDAYS_STOP_TIME)).await;
 
     let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
         .await
         .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
     let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+
+    // IO
+    let _ = fs::remove_dir_all(TEMP_SEVENDAYS_SAVEFILE_ZIP).await;
+    zip(SEVENDAYS_SERVER_SAVEFILE_PATH, TEMP_SEVENDAYS_SAVEFILE_ZIP).map_err(|e| AppError::ZipError(e.to_string()))?;
     let _ = upload_file(&s3client, TEMP_SEVENDAYS_SAVEFILE_ZIP, savefile_info.bucket_name.as_str(),
                           format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
         .await

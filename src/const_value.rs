@@ -13,3 +13,4 @@ pub const UDP_LOCAL_PORT: u16 = 26902;
 pub const DATA_SERVER_PORT: u16 = 3000;
 pub const TEMP_DIR: &str = "/temp";
 pub const TEMP_SEVENDAYS_SAVEFILE_ZIP: &str = "/temp/MyGame.zip";
+pub const SEVENDAYS_STOP_TIME: u64 = 2;
