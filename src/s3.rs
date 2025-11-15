@@ -31,7 +31,7 @@ impl Config {
     }
 }
 
-pub async fn get_rustfs_client() -> anyhow::Result<Client> {
+pub async fn get_rustfs_client(endpoint_url_p: Option<String>) -> anyhow::Result<Client> {
     let config = Config::from_env()?;
     println!("Rustfs Config:\n{:#?}", &config);
 
@@ -45,7 +45,10 @@ pub async fn get_rustfs_client() -> anyhow::Result<Client> {
 
     let region = Region::new(config.region);
 
-    let endpoint_url = config.endpoint_url;
+    let mut endpoint_url = config.endpoint_url;
+    if endpoint_url_p.is_some() {
+        endpoint_url = endpoint_url_p.unwrap();
+    }
 
     let shard_config = aws_config::defaults(BehaviorVersion::latest())
         .region(region)
@@ -99,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn test_rustfs_client() {
         dotenv::dotenv().ok();
-        let rustfs_client = get_rustfs_client().await.unwrap();
+        let rustfs_client = get_rustfs_client(None).await.unwrap();
         let res = rustfs_client.list_buckets().send().await.unwrap();
 
         println!("Total buckets number is {:?}", res.buckets().len());
@@ -112,7 +115,7 @@ mod tests {
     #[tokio::test]
     async fn test_download_file() {
         dotenv::dotenv().ok();
-        let rustfs_client = get_rustfs_client().await.unwrap();
+        let rustfs_client = get_rustfs_client(None).await.unwrap();
         download_file(&rustfs_client,"C:\\Users\\89396\\projects\\game_master\\file.zip", "days7server", "000001/MyGame.zip").await.unwrap();
 
     }

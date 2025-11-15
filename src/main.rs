@@ -21,7 +21,7 @@ use axum::routing::post;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tokio::process::Child;
+use tokio::process::{Child, Command};
 use tokio::sync::{broadcast};
 use crate::archive::unzip;
 use crate::common::get_index;
@@ -37,6 +37,7 @@ struct MasterState {
     gamer_server_running: bool,
     index: u8,
     seven_days_child: Option<Child>,
+    days7_pid: Option<u32>,
 }
 
 async fn init() -> anyhow::Result<()> {
@@ -84,7 +85,7 @@ async fn main() {
 
     // 初始化state
     let masterstate = Arc::new(Mutex::new(
-        MasterState { gamer_server_running: false, index: index, seven_days_child: None },
+        MasterState { gamer_server_running: false, index: index, seven_days_child: None, days7_pid: None },
     ));
 
     let (tx, _rx) = broadcast::channel(100);
@@ -147,7 +148,7 @@ async fn start_7days(
     let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
         .await
         .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
-    let s3client = get_rustfs_client().await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+    let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
     let filepath = format!("{}/{}", TEMP_DIR, savefile_info.name);
     let _ = download_file(&s3client, filepath.as_str(), savefile_info.bucket_name.as_str(),
                   format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
@@ -172,6 +173,7 @@ async fn start_7days(
         {
             let mut state = masterstate2.lock().await;
             state.gamer_server_running = true;
+            state.days7_pid = child.id();
             println!("Game server state set to running.");
         }
         child.wait().await.expect("Failed to wait game server");
@@ -194,16 +196,21 @@ async fn stop_7days(
 
     // 启动7days
     // 获取state
-    let mut state = masterstate.lock().await;
-    if !state.gamer_server_running {
-        return Ok(StatusCode::OK);
+    {
+        let mut state = masterstate.lock().await;
+        if !state.gamer_server_running {
+            return Ok(StatusCode::OK);
+        }
+
+        let pid = state.days7_pid.take().unwrap();
+        let mut cmd = Command::new("kill")
+            .arg("-2")
+            .arg(pid.to_string())
+            .spawn()
+            .map_err(|e| AppError::KillCommandError(e.to_string()))?;
+        let _ = cmd.wait().await.map_err(|e| AppError::KillCommandError(e.to_string()))?;
+        println!("Send kill command to {} prrocess", pid);
     }
-
-    let mut child = state.seven_days_child.take().unwrap();
-    child.start_kill().map_err(|e| AppError::StopProcessError(e.to_string()))?;
-
-    child.wait();
-    println!("sucess stop 7days");
 
     Ok(StatusCode::OK)
 }

@@ -16,6 +16,7 @@ pub enum AppError {
     UnzipError(String),
     DownloadError(String),
     IOError(std::io::Error),
+    KillCommandError(String)
 }
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
@@ -71,6 +72,10 @@ impl IntoResponse for AppError {
             AppError::UnzipError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("unzip error: {}", msg),
+            ),
+            AppError::KillCommandError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("kill command error: {}", msg),
             ),
         };
 

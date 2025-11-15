@@ -82,6 +82,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_savefile_info_by_save_file_id() {
         let _ = dotenv();
-        get_savefile_info_by_save_file_id(1).await.unwrap();
+        get_savefile_info_by_save_file_id(3).await.unwrap();
     }
 }
