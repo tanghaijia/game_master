@@ -1,2 +1,4 @@
 /target
 .env
+file.zip
+frpc.toml

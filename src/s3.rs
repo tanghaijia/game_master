@@ -2,10 +2,12 @@ use std::env;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
+use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub region: String,
     pub access_key_id: String,
@@ -31,6 +33,7 @@ impl Config {
 
 pub async fn get_rustfs_client() -> anyhow::Result<Client> {
     let config = Config::from_env()?;
+    println!("Rustfs Config:\n{:#?}", &config);
 
     let credentials = Credentials::new(
         config.access_key_id,
@@ -79,9 +82,9 @@ pub async fn upload_file(rustfs_client: &Client, path: &str, bucket: &str, key: 
 }
 
 pub async fn download_file(rustfs_client: &Client, path: &str, bucket: &str, key: &str) -> anyhow::Result<()> {
+    let mut object = rustfs_client.get_object().bucket(bucket).key(key).send().await?;
     let _ = fs::remove_file(path).await;
     let mut file = File::create(path).await?;
-    let mut object = rustfs_client.get_object().bucket(bucket).key(key).send().await?;
     while let Some(bytes) = object.body.try_next().await? {
         file.write_all(&bytes).await?;
     }
