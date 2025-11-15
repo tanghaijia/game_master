@@ -129,36 +129,46 @@ async fn status(State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<Js
 #[derive(Deserialize, Debug)]
 struct Start7DaysParam {
     serverconfig_id: i32,
-    save_file_id: i32
+    save_file_id: Option<i32>
 }
 #[axum::debug_handler]
 async fn start_7days(
     State(masterstate): State<Arc<Mutex<MasterState>>>,
     Query(params): Query<Start7DaysParam>) -> Result<StatusCode, AppError> {
-    println!("start 7days by serverconfig_id: {} save_file_id: {} ...", params.serverconfig_id, params.save_file_id);
+    if params.save_file_id.is_some() {
+        println!("start 7days by serverconfig_id: {} save_file_id: {} ...",
+                 params.serverconfig_id,  params.save_file_id.unwrap());
+    } else {
+        println!("start 7days by serverconfig_id: {} ...",
+                 params.serverconfig_id);
+    }
+
 
     // // 配置serverconfig.xml
     let game_config = get_game_config_by_serverconfig_id(params.serverconfig_id)
         .await
         .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
 
-    // 拉取存档
-    let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
-        .await
-        .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
-    let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
-    let filepath = format!("{}/{}", TEMP_DIR, savefile_info.name);
-    let _ = download_file(&s3client, filepath.as_str(), savefile_info.bucket_name.as_str(),
-                  format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
-        .await
-        .map_err(|e| AppError::DownloadError(e.to_string()))?;
+    if (params.save_file_id.is_some()) {
+        // 拉取存档
+        let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id.unwrap())
+            .await
+            .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
+        let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+        let filepath = format!("{}/{}", TEMP_DIR, savefile_info.name);
+        let _ = download_file(&s3client, filepath.as_str(), savefile_info.bucket_name.as_str(),
+                              format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
+            .await
+            .map_err(|e| AppError::DownloadError(e.to_string()))?;
+
+        let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
+        unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PATH)
+            .map_err(|e| AppError::UnzipError(e.to_string()))?;
+    }
 
     // 磁盘io操作
     let game_config_util = GameConfigUtil::new();
     game_config_util.set_serverconfig_xml(&game_config).await.map_err(|e| AppError::SetServerConfigXmlErrror(e.to_string()))?;
-    let _ = fs::remove_dir_all(SEVENDAYS_SERVER_SAVEFILE_PATH).await;
-    unzip(filepath.as_str(), SEVENDAYS_SERVER_SAVEFILE_PATH)
-        .map_err(|e| AppError::UnzipError(e.to_string()))?;
 
     // 启动7days
     // 获取state
@@ -190,10 +200,13 @@ async fn start_7days(
     Ok(StatusCode::OK)
 }
 
-
+#[derive(Deserialize, Debug)]
+struct Stop7DaysParam {
+    save_file_id: Option<i32>
+}
 #[axum::debug_handler]
 async fn stop_7days(
-    Query(params): Query<Start7DaysParam>,
+    Query(params): Query<Stop7DaysParam>,
     State(masterstate): State<Arc<Mutex<MasterState>>>) -> Result<StatusCode, AppError> {
     println!("stop 7days ...");
 
@@ -216,18 +229,20 @@ async fn stop_7days(
     }
     sleep(Duration::from_secs(SEVENDAYS_STOP_TIME)).await;
 
-    let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id)
-        .await
-        .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
-    let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
+    if (params.save_file_id.is_some()) {
+        let savefile_info = get_savefile_info_by_save_file_id(params.save_file_id.unwrap())
+            .await
+            .map_err(|e| AppError::DataServerFucError(e.to_string()))?;
+        let s3client = get_rustfs_client(Some(savefile_info.host)).await.map_err(|e| AppError::GetS3ClientError(e.to_string()))?;
 
-    // IO
-    let _ = fs::remove_dir_all(TEMP_SEVENDAYS_SAVEFILE_ZIP).await;
-    zip(SEVENDAYS_SERVER_SAVEFILE_PATH, TEMP_SEVENDAYS_SAVEFILE_ZIP).map_err(|e| AppError::ZipError(e.to_string()))?;
-    let _ = upload_file(&s3client, TEMP_SEVENDAYS_SAVEFILE_ZIP, savefile_info.bucket_name.as_str(),
-                          format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
-        .await
-        .map_err(|e| AppError::DownloadError(e.to_string()))?;
+        // IO
+        let _ = fs::remove_dir_all(TEMP_SEVENDAYS_SAVEFILE_ZIP).await;
+        zip(SEVENDAYS_SERVER_SAVEFILE_PATH, TEMP_SEVENDAYS_SAVEFILE_ZIP).map_err(|e| AppError::ZipError(e.to_string()))?;
+        let _ = upload_file(&s3client, TEMP_SEVENDAYS_SAVEFILE_ZIP, savefile_info.bucket_name.as_str(),
+                            format!("{}/{}", savefile_info.user_id, savefile_info.name).as_str())
+            .await
+            .map_err(|e| AppError::DownloadError(e.to_string()))?;
+    }
 
     Ok(StatusCode::OK)
 }
