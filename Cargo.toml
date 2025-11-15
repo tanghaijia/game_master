@@ -25,3 +25,4 @@ dotenv = "0.15.0"
 aws-config = { version = "1.8.10", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.112.0"
 zip = { version = "6.0.0"}
+nix = "0.30.1"
