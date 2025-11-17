@@ -61,6 +61,7 @@ async fn main() {
         tcp_remote_port: TCP_LOCAL_PORT + index as u16,
         udp_name: format!("7daysTodieServerUDP-{}", index),
         udp_remote_port: UDP_LOCAL_PORT + index as u16,
+        bandwidthLimit: "50KB".to_string()
     };
     let _ = frpc_config_write(&config, FRPC_TOML_PATH).await.unwrap();
     let res = frpc_config_reload().await.unwrap();

@@ -13,6 +13,7 @@ pub struct FrpcToml {
     pub tcp_remote_port: u16,
     pub udp_name: String,
     pub udp_remote_port: u16,
+    pub bandwidthLimit: String
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,6 +28,11 @@ struct WebServer {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+struct Transport {
+    bandwidthLimit: String
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Proxy {
     name: String,
@@ -36,6 +42,7 @@ struct Proxy {
     local_ip: String,
     local_port: u16,
     remote_port: u16,
+    transport: Transport
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -61,19 +68,24 @@ pub async fn frpc_config_write(config: &FrpcToml, path: &str) -> Result<(), Box<
     let auth = Auth{ token: config.auth_token.clone() };
     let server_addr = config.server_addr.clone();
     let server_port = config.server_port;
+    let transport = Transport {
+        bandwidthLimit: config.bandwidthLimit.clone()
+    };
     let tcp = Proxy {
         name: config.tcp_name.clone(),
         proxy_type: "tcp".to_string(),
         local_port: TCP_LOCAL_PORT,
         local_ip: "127.0.0.1".to_string(),
-        remote_port: config.tcp_remote_port
+        remote_port: config.tcp_remote_port,
+        transport: transport.clone()
     };
     let ucp = Proxy {
         name: config.udp_name.clone(),
         proxy_type: "udp".to_string(),
         local_port: UDP_LOCAL_PORT,
         local_ip: "127.0.0.1".to_string(),
-        remote_port: config.udp_remote_port
+        remote_port: config.udp_remote_port,
+        transport
     };
     let web_server = WebServer {
         addr: "127.0.0.1".to_string(),
@@ -142,6 +154,7 @@ mod tests {
             tcp_remote_port: 26900,
             udp_name: "7daysTodieServerUDP26902".to_string(),
             udp_remote_port: 26902,
+            bandwidthLimit: "1KB".to_string()
         };
         let _ = frpc_config_write(&config, "C:\\Users\\89396\\projects\\game_master\\frpc.toml").await.unwrap();
 
